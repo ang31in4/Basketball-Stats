@@ -16,3 +16,6 @@ It generates a bar graph with points, rebounds, assists, steals, and blocks usin
 ## Example Graph Output
 
 ![Kobe_Bryant2008-2009](https://github.com/user-attachments/assets/0f62971d-d9ae-461f-8032-04acaf1df097)
+
+<img width="1418" height="851" alt="image" src="https://github.com/user-attachments/assets/aa6b0e1e-b5da-45eb-adf0-86d248f16ce6" />
+
