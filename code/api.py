@@ -3,6 +3,7 @@ from nba_api.stats.endpoints import playercareerstats
 from nba_api.stats.library.parameters import PerMode36
 import pandas as pd
 
+
 def find_player(player_name: str):
     '''
     Checks if the inputted player name is in the nba_api database.
@@ -35,8 +36,33 @@ def get_player_career_seasons(user_player_id: str, league: str):
     df = career.get_data_frames()[0]
     return df, df["SEASON_ID"].tolist()
 
-def get_stats_from_season(career: pd.DataFrame, user_input_season: str):
-    '''
-    Retrieves stats from the selected season
-    '''
+def get_player_season_stats(career: pd.DataFrame, user_input_season: int):
     return career.iloc[user_input_season]
+
+def get_player_career(label: str):
+    """
+    Prompts for a player name until valid.
+    Returns dict with career_df and seasons list.
+    """
+    while True:
+        name_input = input(
+            f"Please enter the name of {label} player (exact spelling/caps, or 'q' to cancel): "
+        ).strip()
+
+        if name_input.lower() == "q":
+            return None
+
+        league, player_id = find_player(name_input)
+        if not player_id:
+            print("ERROR: Invalid name. Please try again.\n")
+            continue
+
+        career_df, career_seasons = get_player_career_seasons(player_id, league)
+
+        return {
+            "name": name_input,
+            "league": league,
+            "player_id": player_id,
+            "career_df": career_df,
+            "career_seasons": career_seasons,
+        }

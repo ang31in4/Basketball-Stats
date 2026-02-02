@@ -2,12 +2,42 @@ import api
 import data_visualization as dv
 import os
 
+menu = """
+=======================================
+        Basketball Stats Menu
+=======================================
+  [1] Single Player Stats
+  [2] Compare Multiple Players (up to 3)
+  [q] Quit
+=======================================
+"""
+
+mode1_menu = """
+==========================================
+        Single Player Options
+==========================================
+  [1] Single Season Stats (Bar)
+  [2] Career Stat Trend (Line, Multi Stat)
+      (ppg / rpg / apg / spg / bpg)
+  [b] Back
+==========================================
+"""
+
+mode2_menu = """
+=======================================
+        Compare Players
+=======================================
+  [1] Single-Season Comparison (Bar)
+  [2] Career Comparison (Line, One Stat)
+  [b] Back
+=======================================
+"""
 
 def print_seasons(seasons: list):
     '''
     Prints out seasons
     '''
-    print("\n------ Available Seasons ------")
+    print("\n====== Available Seasons ======")
     command_index = 0
     n = len(seasons)
     if n <= 8:
@@ -76,7 +106,7 @@ def get_player_season_stats(label: str):
         career_df, career_seasons = api.get_player_career_seasons(player_id, league)
 
         season_idx = choose_season(career_seasons)
-        stats = api.get_stats_from_season(career_df, season_idx)
+        stats = api.get_player_season_stats(career_df, season_idx)
 
         return {
             "name": name_input,
@@ -88,63 +118,142 @@ def get_player_season_stats(label: str):
 
 def run():
     while True:
-        mode = input("Mode: [1] Single player graph, [2] Compare two players: ").strip()
+        print(menu)
+        mode = input("Select an option: ").strip().lower()
+
+        if mode == "q":
+            return False  # stop main loop
+
+        if mode not in ("1", "2"):
+            print("\nERROR: Choose 1 or 2.\n")
+            continue
+
+        made_graph = False  # <- track whether we actually generated a graph this cycle
 
         if mode == "1":
-            p = get_player_season_stats("the")
-            if p is None:
-                # invalid name -> go back to choosing mode again (or you could retry name inside that function)
-                print("\nTry again.\n")
+            while True:
+                print(mode1_menu)
+                sub = input("Select an option: ").strip().lower()
+
+                if sub == "b":
+                    break  # back to mode selection
+
+                if sub == "1":
+                    p = get_player_season_stats("the")
+                    if p is None:
+                        continue
+                    filename = dv.make_stats_bar_graph([p])
+                    print(f'\nSuccess! Graph created for {p["name"]} during the {p["season_label"]} season\nSaved to: {filename}\n')
+                    made_graph = True
+                    break  # <- go to "again" prompt
+
+                if sub == "2":
+                    p = api.get_player_career("the")
+                    if p is None:
+                        continue
+
+                    stat_input = input("Enter stats separated by commas (ppg,rpg,apg,spg,bpg): ").strip().lower()
+                    stat_codes = [s.strip() for s in stat_input.split(",") if s.strip()]
+
+                    filename = dv.make_single_player_multi_stat_career_graph(p["name"], p["career_df"], stat_codes)
+                    print("Saved to:", filename)
+
+                    made_graph = True
+                    break  # <- go to "again" prompt
+
+                print("\nERROR: Choose 1, 2, or b.\n")
+
+            if not made_graph:
+                # user hit 'b' (back). restart outer loop to choose mode again
                 continue
 
-            dv.make_graph(p["name"], p["stats"], p["season_label"])
-            print(f'\nSuccess! Graph created for {p["name"]} during the {p["season_label"]} season.\n')
-            return False  # or return True depending on how your main loop is set up
+        else:  # mode == "2"
+            while True:
+                print(mode2_menu)
+                sub = input("Select an option: ").strip().lower()
 
-        elif mode == "2":
-            p1 = get_player_season_stats("Player 1")
-            if p1 is None:
-                print("\nTry again.\n")
-                continue
+                if sub == "b":
+                    break
 
-            p2 = get_player_season_stats("Player 2")
-            if p2 is None:
-                print("\nTry again.\n")
-                continue
+                if sub not in ("1", "2"):
+                    print("\nERROR: Choose 1, 2, or b.\n")
+                    continue
 
-            dv.make_comparison_graph(
-                p1_name=p1["name"],
-                p1_stats=p1["stats"],
-                p1_season=p1["season_label"],
-                p2_name=p2["name"],
-                p2_stats=p2["stats"],
-                p2_season=p2["season_label"],
-            )
+                while True:
+                    count_input = input("How many players to compare? (2-3): ").strip()
+                    if count_input.isdigit() and 2 <= int(count_input) <= 3:
+                        num_players = int(count_input)
+                        break
+                    print("\nERROR: Enter a number from 2 to 3.\n")
 
-            print(
-                f'\nSuccess! Comparison graph created: {p1["name"]} ({p1["season_label"]}) vs '
-                f'{p2["name"]} ({p2["season_label"]}).\n'
-            )
-            return False  # or return True depending on your main loop
+                # ===============================
+                # BAR GRAPH (single season)
+                # ===============================
+                if sub == "1":
+                    players_list = []
+                    for i in range(num_players):
+                        p = get_player_season_stats(f"Player {i+1}")
+                        if p is None:
+                            players_list = []
+                            break
+                        players_list.append(p)
 
-        else:
-            print("\nERROR: Choose 1 or 2.\n")
-            # stays in the while loop and asks again
+                    if len(players_list) != num_players:
+                        continue
 
+                    filename = dv.make_stats_bar_graph(players_list)
 
-def main():
-    # For personal testing
-    os.system('ipconfig /flushdns > nul 2>&1')
+                    names = " vs ".join(
+                        [f'{p["name"]} ({p["season_label"]})' for p in players_list]
+                    )
+                    print(
+                        f"\nSuccess! Bar comparison created: {names}"
+                        f"\nSaved to: {filename}\n"
+                    )
+                    break  # go to "Make another graph?"
 
-    print('\nWelcome! This program will create a bar graph using the statistics'
-          ' of an NBA or WNBA player. \n')
+                # ===============================
+                # LINE GRAPH (career, one stat)
+                # ===============================
+                if sub == "2":
+                    players_list = []
+                    for i in range(num_players):
+                        p = api.get_player_career(f"Player {i+1}")
+                        if p is None:
+                            players_list = []
+                            break
+                        players_list.append(p)
 
-    while True:
-        run()  # always attempt one graph (single or compare)
+                    if len(players_list) != num_players:
+                        continue
 
+                    stat_code = input(
+                        "Which stat to compare? (ppg/rpg/apg/spg/bpg): "
+                    ).strip().lower()
+
+                    if stat_code not in ("ppg", "rpg", "apg", "spg", "bpg"):
+                        print("\nERROR: Choose one of ppg/rpg/apg/spg/bpg.\n")
+                        continue
+
+                    filename = dv.make_multi_player_single_stat_career_graph(
+                        players_list, stat_code
+                    )
+
+                    names = " vs ".join([p["name"] for p in players_list])
+                    print(
+                        f"\nSuccess! Career line comparison created: {names} ({stat_code.upper()})"
+                        f"\nSaved to: {filename}\n"
+                    )
+                    break
+        
         again = input("Make another graph? (y/n): ").strip().lower()
         if again != "y":
-            print("Goodbye!")
+            return False  # stop main loop
+
+def main():
+    while True:
+        keep_going = run()
+        if not keep_going:
             break
 
 
